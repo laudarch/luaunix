@@ -179,6 +179,14 @@ unix_rename(lua_State *L)
 }
 
 static int
+unix_signal(lua_State *L)
+{
+	lua_pushinteger(L, signal(luaL_checkinteger(L, 1),
+	    luaL_checkinteger(L, 2)));
+	return 1;
+}
+
+static int
 unix_setpwent(lua_State *L)
 {
 	setpwent();
@@ -301,6 +309,32 @@ unix_getgrgid(lua_State *L)
 }
 
 static int
+unix_gethostname(lua_State *L)
+{
+	char name[128];
+
+	if (!gethostname(name, sizeof name))
+		lua_pushstring(L, name);
+	else
+		lua_pushnil(L);
+	return 1;
+}
+
+static int
+unix_sethostname(lua_State *L)
+{
+	const char *name;
+	size_t len;
+
+	name = luaL_checklstring(L, 1, &len);
+	if (sethostname(name, len))
+		lua_pushnil(L);
+	else
+		lua_pushboolean(L, 1);
+	return 1;
+}
+
+static int
 unix_openlog(lua_State *L)
 {
 	const char *ident;
@@ -346,7 +380,7 @@ unix_set_info(lua_State *L)
 	lua_pushliteral(L, "Unix binding for Lua");
 	lua_settable(L, -3);
 	lua_pushliteral(L, "_VERSION");
-	lua_pushliteral(L, "unix 1.2.1");
+	lua_pushliteral(L, "unix 1.2.2");
 	lua_settable(L, -3);
 }
 
@@ -407,6 +441,9 @@ static struct constant unix_constant[] = {
 	CONSTANT(SIGIO),
 	CONSTANT(SIGPWR),
 	CONSTANT(SIGSYS),
+
+	CONSTANT(SIG_IGN),
+	CONSTANT(SIG_ERR),
 
 	/* syslog options */
 	CONSTANT(LOG_CONS),
@@ -474,6 +511,9 @@ luaopen_unix(lua_State *L)
 		{ "chmod",	unix_chmod },
 		{ "rename",	unix_rename },
 
+		/* signals */
+		{ "signal",	unix_signal },
+
 		{ "setpwent",	unix_setpwent },
 		{ "endpwent",	unix_endpwent },
 		{ "getpwent",	unix_getpwent },
@@ -482,6 +522,10 @@ luaopen_unix(lua_State *L)
 
 		{ "getgrnam",	unix_getgrnam },
 		{ "getgrgid",	unix_getgrgid },
+
+		/* hostname */
+		{ "gethostname",	unix_gethostname },
+		{ "sethostname",	unix_sethostname },
 
 		/* syslog */
 		{ "openlog",	unix_openlog },
