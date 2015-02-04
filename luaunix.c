@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2014, Micro Systems Marc Balmer, CH-5073 Gipf-Oberfrick
+ * Copyright (c) 2011 - 2015, Micro Systems Marc Balmer, CH-5073 Gipf-Oberfrick
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,12 +40,16 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <pwd.h>
+#include <shadow.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
 #include "select.h"
+
+extern char *crypt(const char *key, const char *salt);
+typedef void (*sighandler_t)(int);
 
 static int
 unix_arc4random(lua_State *L)
@@ -179,10 +183,22 @@ unix_rename(lua_State *L)
 }
 
 static int
+unix_crypt(lua_State *L)
+{
+	lua_pushstring(L, crypt(luaL_checkstring(L, 1),
+	    luaL_checkstring(L, 2)));
+	return 1;
+}
+
+static int
 unix_signal(lua_State *L)
 {
-	lua_pushinteger(L, signal(luaL_checkinteger(L, 1),
-	    luaL_checkinteger(L, 2)));
+	sighandler_t old, new;
+
+	new = (sighandler_t)lua_tocfunction(L, 2);
+	old = signal(luaL_checkinteger(L, 1), new);
+
+	lua_pushcfunction(L, (lua_CFunction)old);
 	return 1;
 }
 
@@ -254,6 +270,41 @@ unix_getpwuid(lua_State *L)
 	pwd = getpwuid(luaL_checkinteger(L, 1));
 	if (pwd != NULL)
 		unix_pushpasswd(L, pwd);
+	else
+		lua_pushnil(L);
+	return 1;
+}
+
+static void
+unix_pushspasswd(lua_State *L, struct spwd *spwd)
+{
+	lua_newtable(L);
+	lua_pushstring(L, spwd->sp_namp);
+	lua_setfield(L, -2, "sp_namp");
+	lua_pushstring(L, spwd->sp_pwdp);
+	lua_setfield(L, -2, "sp_pwdp");
+	lua_pushinteger(L, spwd->sp_lstchg);
+	lua_setfield(L, -2, "sp_lstchg");
+	lua_pushinteger(L, spwd->sp_min);
+	lua_setfield(L, -2, "sp_min");
+	lua_pushinteger(L, spwd->sp_max);
+	lua_setfield(L, -2, "sp_max");
+	lua_pushinteger(L, spwd->sp_warn);
+	lua_setfield(L, -2, "sp_warn");
+	lua_pushinteger(L, spwd->sp_inact);
+	lua_setfield(L, -2, "sp_inact");
+	lua_pushinteger(L, spwd->sp_expire);
+	lua_setfield(L, -2, "sp_expire");
+}
+
+static int
+unix_getspnam(lua_State *L)
+{
+	struct spwd *spwd;
+
+	spwd = getspnam(luaL_checkstring(L, 1));
+	if (spwd != NULL)
+		unix_pushspasswd(L, spwd);
 	else
 		lua_pushnil(L);
 	return 1;
@@ -373,14 +424,14 @@ static void
 unix_set_info(lua_State *L)
 {
 	lua_pushliteral(L, "_COPYRIGHT");
-	lua_pushliteral(L, "Copyright (C) 2012 - 2014 by "
+	lua_pushliteral(L, "Copyright (C) 2012 - 2015 by "
 	    "micro systems marc balmer");
 	lua_settable(L, -3);
 	lua_pushliteral(L, "_DESCRIPTION");
 	lua_pushliteral(L, "Unix binding for Lua");
 	lua_settable(L, -3);
 	lua_pushliteral(L, "_VERSION");
-	lua_pushliteral(L, "unix 1.2.2");
+	lua_pushliteral(L, "unix 1.2.3");
 	lua_settable(L, -3);
 }
 
@@ -441,9 +492,6 @@ static struct constant unix_constant[] = {
 	CONSTANT(SIGIO),
 	CONSTANT(SIGPWR),
 	CONSTANT(SIGSYS),
-
-	CONSTANT(SIG_IGN),
-	CONSTANT(SIG_ERR),
 
 	/* syslog options */
 	CONSTANT(LOG_CONS),
@@ -511,6 +559,9 @@ luaopen_unix(lua_State *L)
 		{ "chmod",	unix_chmod },
 		{ "rename",	unix_rename },
 
+		/* crypt */
+		{ "crypt",	unix_crypt },
+
 		/* signals */
 		{ "signal",	unix_signal },
 
@@ -519,6 +570,9 @@ luaopen_unix(lua_State *L)
 		{ "getpwent",	unix_getpwent },
 		{ "getpwnam",	unix_getpwnam },
 		{ "getpwuid",	unix_getpwuid },
+
+		/* shadow password */
+		{ "getspnam",	unix_getspnam },
 
 		{ "getgrnam",	unix_getgrnam },
 		{ "getgrgid",	unix_getgrgid },
@@ -577,5 +631,9 @@ luaopen_unix(lua_State *L)
 		lua_pushinteger(L, unix_constant[n].value);
 		lua_setfield(L, -2, unix_constant[n].name);
 	};
+	lua_pushcfunction(L, (lua_CFunction)SIG_IGN);
+	lua_setfield(L, -2, "SIG_IGN");
+	lua_pushcfunction(L, (lua_CFunction)SIG_DFL);
+	lua_setfield(L, -2, "SIG_DFL");
 	return 1;
 }
