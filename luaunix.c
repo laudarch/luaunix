@@ -402,7 +402,7 @@ unix_openlog(lua_State *L)
 static int
 unix_syslog(lua_State *L)
 {
-	syslog(luaL_checkint(L, 1), "%s", luaL_checkstring(L, 2));
+	syslog(luaL_checkinteger(L, 1), "%s", luaL_checkstring(L, 2));
 	return 0;
 }
 
@@ -416,7 +416,7 @@ unix_closelog(lua_State *L)
 static int
 unix_setlogmask(lua_State *L)
 {
-	lua_pushinteger(L, setlogmask(luaL_checkint(L, 1)));
+	lua_pushinteger(L, setlogmask(luaL_checkinteger(L, 1)));
 	return 1;
 }
 
@@ -431,7 +431,7 @@ unix_set_info(lua_State *L)
 	lua_pushliteral(L, "Unix binding for Lua");
 	lua_settable(L, -3);
 	lua_pushliteral(L, "_VERSION");
-	lua_pushliteral(L, "unix 1.2.3");
+	lua_pushliteral(L, "unix 1.2.4");
 	lua_settable(L, -3);
 }
 
