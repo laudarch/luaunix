@@ -40,7 +40,9 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <pwd.h>
+#ifdef __linux__
 #include <shadow.h>
+#endif
 #include <signal.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -275,6 +277,7 @@ unix_getpwuid(lua_State *L)
 	return 1;
 }
 
+#ifdef __linux__
 static void
 unix_pushspasswd(lua_State *L, struct spwd *spwd)
 {
@@ -309,6 +312,7 @@ unix_getspnam(lua_State *L)
 		lua_pushnil(L);
 	return 1;
 }
+#endif
 
 static void
 unix_pushgroup(lua_State *L, struct group *grp)
@@ -570,9 +574,10 @@ luaopen_unix(lua_State *L)
 		{ "getpwent",	unix_getpwent },
 		{ "getpwnam",	unix_getpwnam },
 		{ "getpwuid",	unix_getpwuid },
-
+#ifdef __linux__
 		/* shadow password */
 		{ "getspnam",	unix_getspnam },
+#endif
 
 		{ "getgrnam",	unix_getgrnam },
 		{ "getgrgid",	unix_getgrgid },
